@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+chroma_db/
+venv/
+app.log
+document_cache/
+.python-version
+
+uv.lock
+.gradio/certificate.pem
+cv_platform/38cb27b72a5f4db7b79dc2e2ab9455d3.jpg
