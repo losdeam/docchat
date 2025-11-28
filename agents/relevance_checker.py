@@ -36,6 +36,7 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
 
         # Retrieve doc chunks from the ensemble retriever
         top_docs = retriever.invoke(question)
+
         if not top_docs:
             logger.debug("No documents returned from retriever.invoke(). Classifying as NO_MATCH.")
             return "NO_MATCH"

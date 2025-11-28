@@ -1,6 +1,6 @@
 from config.settings import settings
 from typing import List, Dict
-from langchain.schema import Document
+from langchain_core.documents import Document
 import re,os
 import logging
 from langchain_openai import ChatOpenAI

@@ -5,8 +5,8 @@ from .research_agent import ResearchAgent   # 使用相关文档生成草拟答�
 from .verification_agent import VerificationAgent # 评估草拟答案的准确性和相关性
 from .relevance_checker import RelevanceChecker # 确定查询是否够可以根据检索到的文档进行回答
 
-from langchain.schema import Document
-from langchain.retrievers import EnsembleRetriever
+from retriever import Retriever
+from langchain_core.documents import Document
 import logging
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,7 +18,7 @@ class AgentState(TypedDict):
     draft_answer: str
     verification_report: str
     is_relevant: bool
-    retriever: EnsembleRetriever
+    retriever :Retriever
 
 class AgentWorkflow:
     def __init__(self):
@@ -87,7 +87,7 @@ class AgentWorkflow:
         print(f"[DEBUG] _decide_after_relevance_check -> {decision}")
         return decision
     
-    def full_pipeline(self, question: str, retriever: EnsembleRetriever):
+    def full_pipeline(self, question: str, retriever: Retriever):
         try:
             print(f"[DEBUG] Starting full_pipeline with question='{question}'")
             documents = retriever.invoke(question)
