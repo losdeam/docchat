@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     # Database settings
     CHROMA_DB_PATH: str = "./chroma_db"
     CHROMA_COLLECTION_NAME: str = "documents"
-
+    DOC_CACHE_PATH : str = "./document_cache"
+    KB_PATH :str = "./kb_cache"
+    KEY_JSON_NAME:str = "hase2name.json" # 存储文件哈希值到文件名称的映射。
     # Retrieval settings - 增加检索的文档数量以提高召回率
     VECTOR_SEARCH_K: int = 20
     HYBRID_RETRIEVER_WEIGHTS: list = [0.2, 0.8]
@@ -35,9 +37,6 @@ class Settings(BaseSettings):
     # Logging settings
     LOG_LEVEL: str = "INFO"
 
-    # Cache settings
-    CACHE_DIR: str = "document_cache"
-    CACHE_EXPIRE_DAYS: int = 7
     # 缓存最大总大小（字节），默认1GB
     MAX_CACHE_SIZE: int = 1024 * 1024 * 1024
     

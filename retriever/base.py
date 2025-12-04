@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, List
-import logging,os
+import logging,os,json
 from config.settings import settings
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
@@ -45,65 +45,7 @@ class BaseRetriever(ABC):
             相关文档列表
         """
         pass
-class file_manager:
-    """
-    文件管理器
-    定义文件管理器的标准接口
-    """
-    def __init__(self,cache_path:str=None):
-        """
-        初始化文件管理器
-        参数:
-            docs: 文件路径列表
-        """
-        self.cache_path = cache_path 
-        docs = self.load_local()
-        self.docs_hashes = self._get_file_hashes(docs) if docs else set() # 存储文档的集合，用户快速查重
-        self.docs = docs
-    def load_local(self)->List[str]:
-        """
-        从本地缓存中加载文件
-        """
-        docs_list = []
-        # 如果缓存路径不存在，返回空列表
-        if not self.cache_path or not os.path.exists(self.cache_path):
-            return docs_list
-        # 遍历缓存路径下的所有文件
-        docs_list = [os.path.join(self.cache_path, file) for file in os.listdir(self.cache_path) if os.path.isfile(os.path.join(self.cache_path, file))]
-        return docs_list
-    def add_docs(self,file_path_list:List[str]):
-        """
-        向知识库中添加文档
-        参数:
-            file_path: 待加入的文档路径列表
-        """
-        add_file = set()
-        for file_path in file_path_list:
-            file_hash = self.get_single_hash(file_path)
-            if file_hash not in self.docs_hashes:
-                # 向缓存地址中写入文档
-                with open(file_path, "rb") as f:
-                    file_name = os.path.basename(file_path)
-                    file_hash = hashlib.sha256(f.read()).hexdigest()
-                    with open(os.path.join(self.cache_path, file_hash), "wb") as f_cache:
-                        f_cache.write(f.read())
-                add_file.add(file_path)
-        activate_set = set(self.docs_hashes)
-        activate_set.update(add_file)
-        self.docs_hashes = frozenset(activate_set)
-        self.docs = self.docs + list(add_file)
-    def get_single_hash(self,file_path:str)->str:
-        """Generate SHA-256 hash for a single file."""
-        with open(file_path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
-    def _get_file_hashes(uploaded_files: List) -> frozenset:
-        """Generate SHA-256 hashes for uploaded files."""
-        hashes = {}
-        for file in uploaded_files:
-            with open(file.name, "rb") as f:
-                hashes[hashlib.sha256(f.read()).hexdigest()] = f.read()
 
-        return frozenset(hashes)
 class BASE_KB(ABC):
     """
     知识库的抽象基类
@@ -139,8 +81,6 @@ class BASE_KB(ABC):
             self.status_msg =f"尚不支持知识库类型: {config.KB_TYPE}"
             self.init_status = False
             return
-        pass
-        self.file_manager = file_manager(self.cache_dir)
         # 获取文件解析器
         self.parser = DoclingProcessor()
     @abstractmethod
