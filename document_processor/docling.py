@@ -39,15 +39,19 @@ class DoclingProcessor(BaseDocumentProcessor):
         # 检查是否有内容
         if not markdown or not markdown.strip():
             logger.warning(f"Document {file_path} has no content after processing")
-            return []
+            # 即使没有内容也返回一个空的文档而不是空列表
+            return [Document(page_content="")] 
         
         splitter = MarkdownHeaderTextSplitter(self.headers)  # 将Docling识别完毕保存为markdown格式的文件使用langchain重新读取
         chunks = splitter.split_text(markdown)
-        
+        for idx, chunk in enumerate(chunks):
+            print("======"*20)
+            print(f"Chunk {idx} content preview: {chunks}")  # 打印每个块的前100个字符以供调试
+            print("======"*20)
         # 如果没有生成块，创建一个包含整个内容的文档
         if not chunks:
             logger.warning(f"No chunks created for document {file_path}, creating single chunk")
-            chunks = [Document(page_content=markdown[:1000])]  # 限制长度避免embedding问题
+            chunks = [Document(page_content=markdown[:1000] if markdown else "")]  # 限制长度避免embedding问题
         
         return chunks
 

@@ -23,7 +23,7 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
         print("判别模型初始化成功.")
 
 
-    def check(self, question: str, retriever, k=3) -> str:
+    def check(self, question: str, documents=None,k=3) -> str:
         """
         1. Retrieve the top-k document chunks from the global retriever.
         2. Combine them into a single text string.
@@ -34,15 +34,12 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
 
         logger.debug(f"RelevanceChecker.check called with question='{question}' and k={k}")
 
-        # Retrieve doc chunks from the ensemble retriever
-        top_docs = retriever.invoke(question)
-
-        if not top_docs:
+        if not documents:
             logger.debug("No documents returned from retriever.invoke(). Classifying as NO_MATCH.")
             return "NO_MATCH"
 
         # Combine the top k chunk texts into one string
-        document_content = "\n\n".join(doc.page_content for doc in top_docs[:k])
+        document_content = "\n\n".join(doc.page_content for doc in documents[:k])
 
         # Create a prompt for the LLM to classify relevance
         prompt = f"""
@@ -80,7 +77,7 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
         except (IndexError, KeyError) as e:
             logger.error(f"Unexpected response structure: {e}")
             return "NO_MATCH"
-
+        print(prompt)
         print(f"Checker response: {llm_response}")
 
         # Validate the response

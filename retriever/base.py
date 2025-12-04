@@ -14,13 +14,14 @@ class BaseKBConfig(BaseModel):
     """
     定义检索器的配置模型
     """
-    name: str = Field(description="知识库名称")
+    name: str = Field(...,description="知识库名称")
     description: str = Field(
+        default="",
         description="知识库描述",
     )
     KB_TYPE: str = Field(default="chroma",description="知识库类型,如Chroma,Weaviate等")
-    EMBEDDING_MODEL_SERVER: str = Field(description="使用的嵌入层服务商")
-    EMBEDDING_MODEL: str = Field(default="BAAI/bge-large-zh-v1.5",description="使用的嵌入层模型名称")
+    EMBEDDING_MODEL_SERVER: str = Field(...,description="使用的嵌入层服务商")
+    EMBEDDING_MODEL: str = Field(default="BAAI/bge-m3",description="使用的嵌入层模型名称")
     PROCESSOR: str = Field(default="Docling",description="使用的文档处理器名称")
 
 
@@ -49,25 +50,59 @@ class file_manager:
     文件管理器
     定义文件管理器的标准接口
     """
-    def __init__(self,docs:list[str]=None):
+    def __init__(self,cache_path:str=None):
         """
         初始化文件管理器
         参数:
             docs: 文件路径列表
         """
-        self.docs_hashes = self._get_file_hashes(docs) if docs else {} # 存储文档的字典，key为文档哈希值，value为文档本体
-    def add_docs():
-        pass
+        self.cache_path = cache_path 
+        docs = self.load_local()
+        self.docs_hashes = self._get_file_hashes(docs) if docs else set() # 存储文档的集合，用户快速查重
+        self.docs = docs
+    def load_local(self)->List[str]:
+        """
+        从本地缓存中加载文件
+        """
+        docs_list = []
+        # 如果缓存路径不存在，返回空列表
+        if not self.cache_path or not os.path.exists(self.cache_path):
+            return docs_list
+        # 遍历缓存路径下的所有文件
+        docs_list = [os.path.join(self.cache_path, file) for file in os.listdir(self.cache_path) if os.path.isfile(os.path.join(self.cache_path, file))]
+        return docs_list
+    def add_docs(self,file_path_list:List[str]):
+        """
+        向知识库中添加文档
+        参数:
+            file_path: 待加入的文档路径列表
+        """
+        add_file = set()
+        for file_path in file_path_list:
+            file_hash = self.get_single_hash(file_path)
+            if file_hash not in self.docs_hashes:
+                # 向缓存地址中写入文档
+                with open(file_path, "rb") as f:
+                    file_name = os.path.basename(file_path)
+                    file_hash = hashlib.sha256(f.read()).hexdigest()
+                    with open(os.path.join(self.cache_path, file_hash), "wb") as f_cache:
+                        f_cache.write(f.read())
+                add_file.add(file_path)
+        activate_set = set(self.docs_hashes)
+        activate_set.update(add_file)
+        self.docs_hashes = frozenset(activate_set)
+        self.docs = self.docs + list(add_file)
     def get_single_hash(self,file_path:str)->str:
         """Generate SHA-256 hash for a single file."""
         with open(file_path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
     def _get_file_hashes(uploaded_files: List) -> frozenset:
         """Generate SHA-256 hashes for uploaded files."""
-        hashes = set()
+        hashes = {}
         for file in uploaded_files:
             with open(file.name, "rb") as f:
-                hashes.add(hashlib.sha256(f.read()).hexdigest())
+                hashes[hashlib.sha256(f.read()).hexdigest()] = f.read()
+
         return frozenset(hashes)
 class BASE_KB(ABC):
     """
@@ -77,16 +112,11 @@ class BASE_KB(ABC):
     def __init__(self,config:BaseKBConfig):
         """初始化检索器构建器"""
         self.init_status = True # 初始化状态，默认为成功
-
         self.status_msg = ""
         if not config.name:
-            self.status_msg ="知识库名称不能为空"
-            self.init_status = False
-            return 
+            raise SyntaxError("知识库名称不能为空")
         if not  config.EMBEDDING_MODEL_SERVER:
-            self.status_msg ="必须要添加嵌入模型才能使用知识库"
-            self.init_status = False
-            return 
+            raise SyntaxError("必须要添加嵌入模型才能使用知识库")
         self.post_processors = [] # 用于保存后处理器列表
         self.name = config.name
         # 加载嵌入模型
@@ -103,18 +133,18 @@ class BASE_KB(ABC):
         self.embeddings = embedding
         if config.KB_TYPE == "chroma":
             # 获取本地缓存地址
-            self.cache_dir = os.path.join(Path(settings.CHROMA_DB_PATH), config.name)
+            self.cache_dir = Path(settings.CHROMA_DB_PATH) / config.name
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         else:
             self.status_msg =f"尚不支持知识库类型: {config.KB_TYPE}"
             self.init_status = False
             return
         pass
-        
+        self.file_manager = file_manager(self.cache_dir)
         # 获取文件解析器
         self.parser = DoclingProcessor()
     @abstractmethod
-    def build_retriever(self,):
+    def build_retriever(self):
         """
         构建检索器的抽象方法
         
@@ -165,9 +195,9 @@ class BASE_KB(ABC):
                 
         return docs
     
-    @abstractmethod
-    def save_local():
-        """
-        保存本地知识库
-        """
-        pass 
+    # @abstractmethod
+    # def save_local():
+    #     """
+    #     保存本地知识库
+    #     """
+    #     pass 

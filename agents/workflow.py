@@ -21,7 +21,8 @@ class AgentState(TypedDict):
     retriever :Retriever
 
 class AgentWorkflow:
-    def __init__(self):
+    def __init__(self, config=None):
+        self.config = config or {}
         self.researcher = ResearchAgent()
         self.verifier = VerificationAgent()
         self.relevance_checker = RelevanceChecker()
@@ -56,12 +57,17 @@ class AgentWorkflow:
             }
         )
         return workflow.compile()
-    
-    def _check_relevance_step(self, state: AgentState) -> Dict:
+    def _retriever(self, state: AgentState) -> Retriever:
+        """
+        Retrieve relevant documents for the given question.
+        """
         retriever = state["retriever"]
+        top_docs = retriever.invoke(state["question"])
+        return top_docs
+    def _check_relevance_step(self, state: AgentState) -> Dict:
         classification = self.relevance_checker.check(
             question=state["question"], 
-            retriever=retriever, 
+            documents=self._retriever(state), 
             k=30  # 提高k值以增强召回率，确保更多潜在相关的文档被考虑
         )
 
@@ -78,7 +84,7 @@ class AgentWorkflow:
         else:  # classification == "NO_MATCH"
             return {
                 "is_relevant": False,
-                "draft_answer": "This question isn't related (or there's no data) for your query. Please ask another question relevant to the uploaded document(s)."
+                "draft_answer": "知识库中查询不到与您的查询相关的数据。请就上传的文档提出其他相关问题"
             }
 
 

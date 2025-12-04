@@ -156,19 +156,19 @@ class VerificationAgent:
 
     def check(self, answer: str, documents: List[Document]) -> Dict:
         """
-        Verify the answer against the provided documents.
+        Verify the accuracy and relevance of a given answer against a list of documents.
         """
-        print(f"VerificationAgent.check called with answer='{answer}' and {len(documents)} documents.")
+        print(f"VerificationAgent.check called with answer length={len(answer)} and {len(documents)} documents.")
 
-        # Combine all document contents into one string without truncation
+        # Combine the top document contents into one string
         context = "\n\n".join([doc.page_content for doc in documents])
         print(f"Combined context length: {len(context)} characters.")
 
-        # Create a prompt for the LLM to verify the answer
+        # Create a prompt for the LLM
         prompt = self.generate_prompt(answer, context)
         print("Prompt created for the LLM.")
 
-        # Call the LLM to generate the verification report
+        # Call the LLM to verify the answer
         try:
             print("Sending prompt to the model...")
             response = self.model.invoke(prompt)
@@ -181,53 +181,38 @@ class VerificationAgent:
         try:
             llm_response = response.content.strip()
             print(f"Raw LLM response:\n{llm_response}")
-        except Exception as e:
+        except (IndexError, KeyError) as e:
             print(f"Unexpected response structure: {e}")
-            verification_report = {
-                "Supported": "NO",
-                "Unsupported Claims": [],
-                "Contradictions": [],
-                "Relevant": "NO",
-                "Additional Details": "Invalid response structure from the model."
-            }
-            verification_report_formatted = self.format_verification_report(verification_report)
-            print(f"Verification report:\n{verification_report_formatted}")
-            print(f"Context used: {context}")
-            return {
-                "verification_report": verification_report_formatted,
-                "context_used": context
-            }
+            llm_response = "Supported: NO\nUnsupported Claims: []\nContradictions: []\nRelevant: NO\nAdditional Details: Failed to parse LLM response."
 
-        # Sanitize the response
-        sanitized_response = self.sanitize_response(llm_response) if llm_response else ""
-        if not sanitized_response:
-            print("LLM returned an empty response.")
-            verification_report = {
-                "Supported": "NO",
-                "Unsupported Claims": [],
-                "Contradictions": [],
-                "Relevant": "NO",
-                "Additional Details": "Empty response from the model."
-            }
-        else:
-            # Parse the response into the expected format
-            verification_report = self.parse_verification_response(sanitized_response)
-            if verification_report is None:
-                print("LLM did not respond with the expected format. Using default verification report.")
-                verification_report = {
-                    "Supported": "NO",
-                    "Unsupported Claims": [],
-                    "Contradictions": [],
-                    "Relevant": "NO",
-                    "Additional Details": "Failed to parse the model's response."
-                }
+        # Parse the structured response
+        verification_result = self.parse_verification_response(llm_response) if llm_response else {
+            "Supported": "NO",
+            "Unsupported Claims": [],
+            "Contradictions": [],
+            "Relevant": "NO",
+            "Additional Details": "Empty response from LLM."
+        }
 
-        # Format the verification report into a paragraph
-        verification_report_formatted = self.format_verification_report(verification_report)
-        print(f"Verification report:\n{verification_report_formatted}")
-        print(f"Context used: {context}")
+        # Sanitize the parsed response
+        sanitized_result = {
+            key: (self.sanitize_response(value) if isinstance(value, str) else value)
+            for key, value in verification_result.items()
+        }
+
+        print(f"Verification result: {sanitized_result}")
+
+        # Format the final report
+        report_lines = [
+            f"Supported: {sanitized_result.get('Supported', 'UNKNOWN')}",
+            f"Unsupported Claims: {sanitized_result.get('Unsupported Claims', [])}",
+            f"Contradictions: {sanitized_result.get('Contradictions', [])}",
+            f"Relevant: {sanitized_result.get('Relevant', 'UNKNOWN')}",
+            f"Additional Details: {sanitized_result.get('Additional Details', 'None')}"
+        ]
+        formatted_report = "\n".join(report_lines)
 
         return {
-            "verification_report": verification_report_formatted,
-            "context_used": context
+            "verification_report": formatted_report,
+            "structured_result": sanitized_result
         }
