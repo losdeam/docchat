@@ -25,10 +25,12 @@ class Settings(BaseSettings):
     ALLOWED_TYPES: list = ALLOWED_TYPES
 
     # Database settings
-    CHROMA_DB_PATH: str = "./chroma_db"
+    # CHROMA_DB_PATH: str = "./chroma_db"
     CHROMA_COLLECTION_NAME: str = "documents"
-    DOC_CACHE_PATH : str = "./document_cache"
-    KB_PATH :str = "./kb_cache"
+    DOC_CACHE_PATH : str = "./cache/document_cache"
+    KB_PATH :str = "./cache/kb_cache"
+    CACHE_DIR :str = "./cache"
+    CACHE_EXPIRE_DAYS:int = 3 
     KEY_JSON_NAME:str = "hase2name.json" # 存储文件哈希值到文件名称的映射。
     # Retrieval settings - 增加检索的文档数量以提高召回率
     VECTOR_SEARCH_K: int = 20

@@ -1,11 +1,11 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, List, Dict
+from typing import TypedDict, List, Dict,Any
 # 核心是以下三个智能体
 from .research_agent import ResearchAgent   # 使用相关文档生成草拟答案
 from .verification_agent import VerificationAgent # 评估草拟答案的准确性和相关性
 from .relevance_checker import RelevanceChecker # 确定查询是否够可以根据检索到的文档进行回答
 
-from retriever import Retriever
+from retriever import Chroma_Retriever
 from langchain_core.documents import Document
 import logging
 from dotenv import load_dotenv
@@ -18,7 +18,7 @@ class AgentState(TypedDict):
     draft_answer: str
     verification_report: str
     is_relevant: bool
-    retriever :Retriever
+    retriever :Any
 
 class AgentWorkflow:
     def __init__(self, config=None):
@@ -57,7 +57,7 @@ class AgentWorkflow:
             }
         )
         return workflow.compile()
-    def _retriever(self, state: AgentState) -> Retriever:
+    def _retriever(self, state: AgentState) :
         """
         Retrieve relevant documents for the given question.
         """
@@ -93,7 +93,7 @@ class AgentWorkflow:
         print(f"[DEBUG] _decide_after_relevance_check -> {decision}")
         return decision
     
-    def full_pipeline(self, question: str, retriever: Retriever):
+    def full_pipeline(self, question: str, retriever):
         try:
             print(f"[DEBUG] Starting full_pipeline with question='{question}'")
             documents = retriever.invoke(question)

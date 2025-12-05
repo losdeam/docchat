@@ -3,7 +3,7 @@ from langchain_community.retrievers import BM25Retriever
 
 from config.settings import settings
 import logging,os,pickle
-from .base import BASE_KB,BaseRetriever,BaseKBConfig
+from .base import BASE_KB,BaseRetriever
 logger = logging.getLogger(__name__)
 
 class Chroma_Retriever(BaseRetriever):
@@ -22,7 +22,7 @@ class Chroma_Retriever(BaseRetriever):
                 docs = retriever.similarity_search_with_score(query)
             else:
                 docs = retriever.invoke(query)
-            print(docs)
+
             for doc in docs:
                 if type(doc) is tuple:
                     adjusted_score = doc[1] * weight
@@ -48,31 +48,25 @@ class Chroma_Retriever(BaseRetriever):
                 final_docs.append(doc)
         return final_docs
 
-class RetrieverBuilder(BASE_KB):
-    def __init__(self, base_setting: BaseKBConfig= None,user_settings=None):
+class Chroma_Builder(BASE_KB):
+    def __init__(self, name: str = "default"):
         """Initialize the retriever builder with embeddings."""
-        if not base_setting:
-            super().__init__(BaseKBConfig(name="default",EMBEDDING_MODEL_SERVER="siliconflow"))
-        else:
-            super().__init__(base_setting)
+        super().__init__(name)
         self.retriever = None
         self.docs_dir = os.path.join(self.cache_dir,"docs.pkl") #用于存储处理后文档的目录(bm25不支持本地持久化),使用pkl格式文件保存
-        self.file_dir =os.path.join(self.cache_dir,"files") #存储原始文档的目录
         if os.path.exists(self.docs_dir): # 加载处理后的文档
             with open(self.docs_dir, 'rb') as f:
                 docs = pickle.load(f)
             self.docs = docs #由于bm25不支持持久化，所以本质上需要即插即用没法预先构建检索器在后续操作，所以利用保存文档列表的形式变相的保存
         else:
             self.docs = []
-        
-        # 使用用户设置或默认设置
-        self.user_settings = user_settings or {}
+
 
     def build_retriever(self, docs=None):
         """构建一个结合BM25与向量检索的混合检索器。"""
         try:
             # 使用用户设置或默认设置
-            hybrid_retriever_weights = self.user_settings.get("HYBRID_RETRIEVER_WEIGHTS", settings.HYBRID_RETRIEVER_WEIGHTS)
+            hybrid_retriever_weights = self.config.HYBRID_RETRIEVER_WEIGHTS
             
             # 如果提供了docs则使用它，否则使用self.docs
             documents = docs if docs is not None else self.docs
@@ -111,5 +105,25 @@ class RetrieverBuilder(BASE_KB):
         except Exception as e:
             logger.error(f"Failed to load vector store: {e}")
             raise
-    def save_local():
-        pass 
+    def invoke(self, query: str) -> list[str]:
+        """使用检索器进行查询。"""
+        try:
+            if self.retriever is None:
+                self.build_retriever()
+            return self.retriever.invoke(query)
+        except Exception as e:
+            logger.error(f"Failed to invoke retriever: {e}")
+            raise
+    def add_doc(self, doc_list: list[str]):
+        docs = self.parse_doc(doc_list)
+        self.docs.extend(docs)
+        return docs
+    # def del_doc(self, doc_list: list[str]):
+    #     if 
+    #     self.docs = [doc for doc in self.docs if doc.metadata["name"] != doc_name]
+    def save_local(self):
+        # 将self.docs以pkl格式保存到self.docs_dir
+        with open(self.docs_dir, 'wb') as f:
+            pickle.dump(self.docs, f)
+        self.save_config()
+

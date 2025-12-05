@@ -17,7 +17,6 @@ class file_manager:
         # 首先获取整体的文件缓存
         self.file_cache_path = settings.DOC_CACHE_PATH
         self.load_local()
-        print(111,self.key_json.keys())
         self.docs_hashes = frozenset(self.key_json.keys()) if self.key_json else frozenset() # 存储文档的集合，用户快速查重
 
     def load_local(self)->List[str]:
@@ -27,7 +26,8 @@ class file_manager:
         # 获取路径
         key_json_path = os.path.join(self.file_cache_path, settings.KEY_JSON_NAME)
         # 如果文件不存在，则创建一个
-        if not os.path.exists(key_json_path):
+        if not os.path.exists(key_json_path): 
+            os.makedirs(self.file_cache_path, exist_ok=True)# 保证父目录存在
             with open(key_json_path, "w") as f:
                 json.dump({}, f)
             self.key_json = {}
@@ -64,10 +64,7 @@ class file_manager:
         key_json_path = os.path.join(self.file_cache_path, settings.KEY_JSON_NAME)
         with open(key_json_path, "w") as f:
             json.dump(self.key_json, f)
-    def get_single_hash(self,file_path:str)->str:
-        """Generate SHA-256 hash for a single file."""
-        with open(file_path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
+
     # def _get_file_hashes() -> frozenset:
     #     """Generate SHA-256 hashes for uploaded files."""
     #     hashes = {}
@@ -75,3 +72,8 @@ class file_manager:
     #         with open(file.name, "rb") as f:
     #             hashes[hashlib.sha256(f.read()).hexdigest()] = f.read()
     #     return frozenset(hashes)
+file_manager_activate = file_manager()
+def get_single_hash(file_path:str)->str:
+    """Generate SHA-256 hash for a single file."""
+    with open(file_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()

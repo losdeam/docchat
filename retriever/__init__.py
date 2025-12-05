@@ -2,8 +2,6 @@
 
 
 from config.settings import settings
-if settings.RETRIEVER == "Chroma":
-    from .chroma import RetrieverBuilder as RetrieverBuilder
-    from .chroma import Chroma_Retriever as Retriever
-else:
-    raise ValueError(f"Unsupported RETRIEVER type: {settings.RETRIEVER}")
+
+from .chroma import Chroma_Builder
+from .chroma import Chroma_Retriever

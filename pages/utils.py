@@ -1,6 +1,6 @@
 from agents.workflow import AgentWorkflow
 from document_processor import DoclingProcessor
-from retriever import RetrieverBuilder
+from retriever import Chroma_Builder
 from config.settings import settings
 import gradio as gr
 # 会话状态

@@ -40,7 +40,7 @@ def test_kb_page(demo=None):
                 if state["retriever"] is None:
                     logger.info("Loading retriever from knowledge base...")
                     # 使用用户配置创建检索器
-                    local_retriever_builder = RetrieverBuilder(user_settings=user_session.get("settings"))
+                    local_retriever_builder = Chroma_Builder(user_settings=user_session.get("settings"))
                     state["retriever"] = local_retriever_builder.build_retriever()
                 
                 # 使用已有的检索器处理问题

@@ -40,7 +40,7 @@ def process_message(message: str, history: List[List[str]],
                 return "❌ 文档处理后没有生成任何内容，请检查文档格式是否支持"
             
             # 创建检索器
-            local_retriever_builder = RetrieverBuilder()
+            local_retriever_builder = Chroma_Builder()
             retriever = local_retriever_builder.build_retriever(docs=chunks)
             state.update({
                 "file_hashes": current_hashes,
