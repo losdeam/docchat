@@ -12,7 +12,7 @@ from utils.cache_queue import get_cache_queue_manager
 from utils.logging import logger
 
 
-class BaseDocumentProcessor(ABC):
+class Baseparser(ABC):
     def __init__(self):
         self.cache_dir = Path(settings.CACHE_DIR)
         self.cache_dir.mkdir(parents=True, exist_ok=True)

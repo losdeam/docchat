@@ -7,7 +7,7 @@ from langchain_openai import OpenAIEmbeddings
 from pydantic import BaseModel, Field
 from pathlib import Path
 from utils import get_single_hash,file_manager_activate
-from document_processor import DoclingProcessor
+from parser import Doclingparser
 logger = logging.getLogger(__name__)
 # 使用pydantic构建一个检索器构建器的config模型
 class BaseKBConfig(BaseModel):
@@ -90,7 +90,7 @@ class BASE_KB(ABC):
         self.embeddings = embedding
 
         # 获取文件解析器
-        self.parser = DoclingProcessor()
+        self.parser = Doclingparser()
 
     @abstractmethod
     def build_retriever(self):

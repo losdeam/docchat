@@ -8,10 +8,10 @@ from langchain_core.documents import Document
 from config.settings import settings
 from utils.logging import logger
 from utils.cache_queue import get_cache_queue_manager
-from .base import BaseDocumentProcessor
+from .base import Baseparser
 
 
-class DoclingProcessor(BaseDocumentProcessor):
+class Doclingparser(Baseparser):
     def __init__(self):
         # 增加更多层级的标题分块以提高召回率
         self.headers = [("#", "Header 1"), ("##", "Header 2"), ("###", "Header 3")]

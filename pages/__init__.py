@@ -12,5 +12,5 @@ def page_init():
             main_page(demo)
             kb_page(demo)
             setting_page(demo)
-    demo.launch(server_name="127.0.0.1", server_port=5000, share=False)
+    demo.launch(server_name="127.0.0.1", server_port=5050, share=False)
             

@@ -1,12 +1,12 @@
 from agents.workflow import AgentWorkflow
-from document_processor import DoclingProcessor
+from parser import Doclingparser
 from retriever import Chroma_Builder
 from config.settings import settings
 import gradio as gr
 # 会话状态
 session_states = {}
 # 初始化处理器和工作流
-processor = DoclingProcessor()
+processor = Doclingparser()
 workflow = AgentWorkflow()
 
 
@@ -26,7 +26,6 @@ def state_init():
             "VECTOR_SEARCH_K":  settings.VECTOR_SEARCH_K,
             "HYBRID_RETRIEVER_WEIGHTS":  settings.HYBRID_RETRIEVER_WEIGHTS,
             "CACHE_EXPIRE_DAYS":  settings.CACHE_EXPIRE_DAYS,
-            "CHROMA_DB_PATH": settings.CHROMA_DB_DEFAULT_PATH,
             "CHROMA_COLLECTION_NAME": settings.CHROMA_DEFAULT_COLLECTION_NAME
         })
     log_state = gr.State({            

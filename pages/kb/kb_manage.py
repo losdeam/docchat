@@ -49,21 +49,7 @@ def kb_manage_page(demo=None):
             """
             return f"✅ {config_info.strip()}"
         
-        def clear_knowledge_base():
-            """清空知识库"""
-            try:
-                chroma_path = settings.CHROMA_DB_PATH
-                if os.path.exists(chroma_path):
-                    # 删除Chroma数据库目录
-                    import shutil
-                    shutil.rmtree(chroma_path)
-                    return "✅ 知识库已清空"
-                else:
-                    return "ℹ️ 知识库已经为空"
-            except Exception as e:
-                logger.error(f"清空知识库时出错: {str(e)}")
-                return f"❌ 清空知识库时出错: {str(e)}"
-        
+
         # 设置按钮点击事件
         refresh_btn.click(
             fn=list_knowledge_base_contents,
@@ -71,11 +57,7 @@ def kb_manage_page(demo=None):
             outputs=[kb_status_output]
         )
         
-        clear_btn.click(
-            fn=clear_knowledge_base,
-            inputs=[],
-            outputs=[kb_status_output]
-        )
+
         
         create_kb_btn.click(
             fn=create_knowledge_base_config,

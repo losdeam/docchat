@@ -15,7 +15,7 @@ def parse_weights(weight_str):
         pass
     return [0.5, 0.5]  # 默认权重
 def update_settings(log_level, vector_search_k, hybrid_weights, cache_expire_days,
-                   chroma_db_path, chroma_collection_name, enable_deduplication, max_results,
+                    chroma_collection_name, enable_deduplication, max_results,
                    user_session):
     """更新配置设置"""
     try:
@@ -28,7 +28,6 @@ def update_settings(log_level, vector_search_k, hybrid_weights, cache_expire_day
                 "VECTOR_SEARCH_K": int(vector_search_k),
                 "HYBRID_RETRIEVER_WEIGHTS": weights,
                 "CACHE_EXPIRE_DAYS": int(cache_expire_days),
-                "CHROMA_DB_PATH": chroma_db_path,
                 "CHROMA_COLLECTION_NAME": chroma_collection_name
             },
             "post_processing_config": {
@@ -53,7 +52,6 @@ def get_current_settings(user_settings=None):
             "VECTOR_SEARCH_K": user_settings.get("VECTOR_SEARCH_K", settings.VECTOR_SEARCH_K),
             "HYBRID_RETRIEVER_WEIGHTS": user_settings.get("HYBRID_RETRIEVER_WEIGHTS", settings.HYBRID_RETRIEVER_WEIGHTS),
             "CACHE_EXPIRE_DAYS": user_settings.get("CACHE_EXPIRE_DAYS", settings.CACHE_EXPIRE_DAYS),
-            "CHROMA_DB_PATH": user_settings.get("CHROMA_DB_PATH", settings.CHROMA_DB_DEFAULT_PATH),
             "CHROMA_COLLECTION_NAME": user_settings.get("CHROMA_COLLECTION_NAME", settings.CHROMA_DEFAULT_COLLECTION_NAME)
         }
     return {
@@ -61,7 +59,6 @@ def get_current_settings(user_settings=None):
         "VECTOR_SEARCH_K": settings.VECTOR_SEARCH_K,
         "HYBRID_RETRIEVER_WEIGHTS": settings.HYBRID_RETRIEVER_WEIGHTS,
         "CACHE_EXPIRE_DAYS": settings.CACHE_EXPIRE_DAYS,
-        "CHROMA_DB_PATH": settings.CHROMA_DB_DEFAULT_PATH,
         "CHROMA_COLLECTION_NAME": settings.CHROMA_DEFAULT_COLLECTION_NAME
     }
 def setting_page(demo=None):
@@ -123,10 +120,6 @@ def setting_page(demo=None):
                     precision=0
                 )
                 
-                config_chroma_db_path = gr.Textbox(
-                    value=settings.CHROMA_DB_PATH,
-                    label="Chroma 数据库路径 (CHROMA_DB_PATH)"
-                )
                 
                 config_chroma_collection_name = gr.Textbox(
                     value=settings.CHROMA_COLLECTION_NAME,
@@ -154,8 +147,7 @@ def setting_page(demo=None):
                 config_log_level, 
                 config_vector_search_k, 
                 config_hybrid_weights, 
-                config_cache_expire_days, 
-                config_chroma_db_path, 
+                config_cache_expire_days,
                 config_chroma_collection_name,
                 config_enable_deduplication,
                 config_max_results,
