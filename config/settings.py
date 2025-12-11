@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # Core paths - 整合到配置中方便统一管理
     PROJECT_ROOT: Path = Path(__file__).parent.parent
     CACHE_DIR_PATH: str = str(PROJECT_ROOT / "cache")
-    CHROMA_DB_DEFAULT_PATH: str = str(PROJECT_ROOT / "chroma_db")
+
     CHROMA_DEFAULT_COLLECTION_NAME: str = "docchat-collection"
     # 解析器相关配置
     PROCESSOR: str = ""

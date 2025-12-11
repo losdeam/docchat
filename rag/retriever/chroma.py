@@ -2,11 +2,13 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
 
 from config.settings import settings
-import logging,os,pickle
-from .base import BASE_KB,BaseRetriever
+import logging, os, pickle,json
+from typing import List, Any
+from langchain_core.documents import Document
+from .base import BASE_KB
 logger = logging.getLogger(__name__)
 
-class Chroma_Retriever(BaseRetriever):
+class Chroma_Retriever():
     def __init__(self, retrievers,weights,flags):
         """初始化检索器列表，以及对应的权重，以及对应标记"""
         self.retrievers = retrievers
@@ -51,15 +53,17 @@ class Chroma_Retriever(BaseRetriever):
 class Chroma_Builder(BASE_KB):
     def __init__(self, name: str = "default"):
         """Initialize the retriever builder with embeddings."""
-        super().__init__(name)
+        super().__init__(name)  # 调用基类初始化，即使 BASE_KB 是空实现也保持一致性
+        self.name = name
         self.retriever = None
-        self.docs_dir = os.path.join(self.cache_dir,"docs.pkl") #用于存储处理后文档的目录(bm25不支持本地持久化),使用pkl格式文件保存
-        if os.path.exists(self.docs_dir): # 加载处理后的文档
-            with open(self.docs_dir, 'rb') as f:
-                docs = pickle.load(f)
-            self.docs = docs #由于bm25不支持持久化，所以本质上需要即插即用没法预先构建检索器在后续操作，所以利用保存文档列表的形式变相的保存
-        else:
-            self.docs = []
+        self.config = None
+        self.embeddings = None
+        self.parser = None
+        self.docs = {}
+        self.cache_dir = None
+        self.config_path = None
+        self.docs_dir = None
+
 
 
     def build_retriever(self, docs=None):
@@ -69,9 +73,14 @@ class Chroma_Builder(BASE_KB):
             hybrid_retriever_weights = self.config.HYBRID_RETRIEVER_WEIGHTS
             
             # 如果提供了docs则使用它，否则使用self.docs
-            documents = docs if docs is not None else self.docs
-            
-            # 检查是否有文档，如果没有则返回一个空的检索器
+            documents = docs if docs is not None else list(self.docs.values()) if isinstance(self.docs, dict) else self.docs
+
+            # 展平文档：如果 self.docs 是字典，values() 是列表的列表，则需展平
+            if isinstance(documents, dict):
+                documents = [doc for chunk_list in documents.values() for doc in chunk_list]
+            elif isinstance(documents, list) and len(documents) > 0 and isinstance(documents[0], list):
+                documents = [doc for sublist in documents for doc in sublist]
+
             if not documents:
                 logger.warning("No documents provided for retriever construction")
                 # 创建一个空的BM25检索器
@@ -105,6 +114,7 @@ class Chroma_Builder(BASE_KB):
         except Exception as e:
             logger.error(f"Failed to load vector store: {e}")
             raise
+
     def invoke(self, query: str) -> list[str]:
         """使用检索器进行查询。"""
         try:
@@ -114,16 +124,68 @@ class Chroma_Builder(BASE_KB):
         except Exception as e:
             logger.error(f"Failed to invoke retriever: {e}")
             raise
+    
     def add_doc(self, doc_list: list[str]):
         docs = self.parse_doc(doc_list)
         self.docs.extend(docs)
         return docs
-    # def del_doc(self, doc_list: list[str]):
-    #     if 
-    #     self.docs = [doc for doc in self.docs if doc.metadata["name"] != doc_name]
+
     def save_local(self):
         # 将self.docs以pkl格式保存到self.docs_dir
         with open(self.docs_dir, 'wb') as f:
             pickle.dump(self.docs, f)
         self.save_config()
 
+    def list_docs(self):
+        return list(self.docs.keys()) if isinstance(self.docs, dict) else []
+
+    def list_chunks(self, doc_name):
+        return self.docs.get(doc_name, []) if isinstance(self.docs, dict) else []
+        
+    def delete_docs(self, doc_name: str):
+        """删除指定文档"""
+        if isinstance(self.docs, dict) and doc_name in self.docs:
+            del self.docs[doc_name]
+        
+    def parse_doc(self, docs: list) -> list:
+        """
+        解析文档
+        
+        Args:
+            docs: 文档路径列表
+            
+        Returns:
+            处理后的 Document 列表
+        """
+        from langchain_core.documents import Document
+        from utils import get_single_hash,file_manager_activate
+
+        result = []
+        file_manager_activate.add_docs(docs)  # 将文件保存至本地
+
+        for file_path in docs:
+            # 生成唯一哈希标识
+            ext = file_path.split(".")[-1]
+            doc_hash = get_single_hash(file_path) + "." + ext
+            doc_name = os.path.basename(file_path)
+
+            if doc_hash not in self.config.FILE_LIST:
+                try:
+                    chunks = self.parser._process_file(file_path)
+                    document_chunks = [
+                        Document(page_content=chunk, metadata={"sort_id": idx})
+                        for idx, chunk in enumerate(chunks)
+                    ]
+                    result.extend(document_chunks)
+                    self.docs[doc_name] = document_chunks
+                    self.config.FILE_LIST[doc_hash] = doc_name
+                except Exception as e:
+                    logger.error(f"Failed to process file {file_path}: {e}")
+        return result
+        
+    def save_config(self):
+        """
+        保存本地知识库的配置文件
+        """
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(self.config.model_dump(), f, indent=4)

@@ -35,7 +35,7 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
         logger.debug(f"RelevanceChecker.check called with question='{question}' and k={k}")
 
         if not documents:
-            logger.debug("No documents returned from retriever.invoke(). Classifying as NO_MATCH.")
+            logger.debug("No documents returned from rag.retriever.invoke(). Classifying as NO_MATCH.")
             return "NO_MATCH"
 
         # Combine the top k chunk texts into one string

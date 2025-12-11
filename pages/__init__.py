@@ -4,10 +4,9 @@ from .kb import kb_page
 import gradio as gr
 
 def page_init():
-
+    
     with gr.Blocks(title="DocChat 🐥") as demo:
         gr.Markdown("# DocChat: powered by Docling 🐥 and LangGraph")
-        
         with gr.Tabs():
             main_page(demo)
             kb_page(demo)

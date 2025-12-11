@@ -1,11 +1,10 @@
 import gradio as gr 
 from pages.utils import *
 from typing import List, Dict, Any, Tuple
-from utils.logging import logger
+from utils import logger,get_available_knowledge_bases
 import hashlib
 import traceback
-from pathlib import Path
-from config.settings import settings
+
 from config import constants
 def process_message(message: str, history: List[List[str]], 
                    uploaded_files: List[Any], kb_selector: str) -> str:
@@ -64,19 +63,7 @@ def process_message(message: str, history: List[List[str]],
         traceback.print_exc()
         logger.error(f"Processing error: {str(e)}")
         return f"❌ 错误: {str(e)}"
-def get_available_knowledge_bases():
-    """获取可用的知识库列表"""
-    try:
-        chroma_path = Path(settings.CHROMA_DB_DEFAULT_PATH)
-        if chroma_path.exists():
-            collections_path = chroma_path / "collections"
-            if collections_path.exists():
-                collections = [d.name for d in collections_path.iterdir() if d.is_dir()]
-                return collections if collections else ["default"]
-        return ["default"]
-    except Exception as e:
-        logger.error(f"Error getting knowledge bases: {e}")
-        return ["default"]
+
 
 def main_page(demo=None):
     with gr.TabItem("🏠 主界面"):

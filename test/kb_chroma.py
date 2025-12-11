@@ -1,4 +1,4 @@
-from retriever import Chroma_Builder
+from rag.retriever import Chroma_Builder
 import traceback
 retriever = Chroma_Builder()
 try:

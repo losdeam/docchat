@@ -1,19 +1,21 @@
 import gradio as gr
-from utils.logging import logger
+from utils import logger,get_available_knowledge_bases
 from typing import List
 from config import constants
-def import_documents_to_kb(files: List) -> str:
+from rag.retriever import kb_manager
+def import_documents_to_kb(kb_name,files: List) -> str:
     """导入文档到知识库"""
-    try:
-        if not files:
-            return "❌ 没有选择文件"
-            
-        # importer = KnowledgeBaseImporter()
-        result = ""
-        return f"✅ {result}"
-    except Exception as e:
-        logger.error(f"导入文档时出错: {str(e)}")
-        return f"❌ 导入文档时出错: {str(e)}"
+    # try:  
+    if not files:
+        return "❌ 没有选择文件"
+    kb = kb_manager.kb_dict[kb_name]
+    kb.add_doc(files)
+    # importer = KnowledgeBaseImporter()
+    result = ""
+    return f"✅ {result}"
+    # except Exception as e:
+    #     logger.error(f"导入文档时出错: {str(e)}")
+    #     return f"❌ 导入文档时出错: {str(e)}"
 
 def add_doc_page(demo=None):
     with gr.TabItem("📥 导入知识库"):
@@ -23,12 +25,18 @@ def add_doc_page(demo=None):
         with gr.Row():
             with gr.Column():
                 kb_files = gr.Files(label="📄 选择要导入的文档", file_types=constants.ALLOWED_TYPES)
+                kb_selector = gr.Dropdown(
+                        label="📚 选择知识库",
+                        choices=kb_manager.list_kb(),
+                        value=kb_manager.list_kb()[0] if kb_manager.list_kb() else "default",
+                        scale=4
+                    )
                 import_btn = gr.Button("📥 导入到知识库", variant="primary")
                 import_output = gr.Textbox(label="导入结果", interactive=False)
                 
                 import_btn.click(
                     fn=import_documents_to_kb,
-                    inputs=[kb_files],
+                    inputs=[kb_selector,kb_files],
                     outputs=[import_output]
                 )
                 

@@ -7,7 +7,6 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_core.documents import Document
 from config.settings import settings
 from utils.logging import logger
-from utils.cache_queue import get_cache_queue_manager
 from .base import Baseparser
 
 
@@ -17,9 +16,6 @@ class Doclingparser(Baseparser):
         self.headers = [("#", "Header 1"), ("##", "Header 2"), ("###", "Header 3")]
         self.cache_dir = Path(settings.CACHE_DIR_PATH)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-        # 获取缓存队列管理器实例
-        self.cache_queue = get_cache_queue_manager()
 
     def _process_file(self, file_path: str) -> List[Any]:
         """Original processing logic with Docling"""
@@ -44,14 +40,29 @@ class Doclingparser(Baseparser):
         
         splitter = MarkdownHeaderTextSplitter(self.headers)  # 将Docling识别完毕保存为markdown格式的文件使用langchain重新读取
         chunks = splitter.split_text(markdown)
+        processed_chunks = []
         for idx, chunk in enumerate(chunks):
-            print("======"*20)
-            print(f"Chunk {idx} content preview: {chunks}")  # 打印每个块的前100个字符以供调试
-            print("======"*20)
+            # 如果 chunk 不是 Document，转换为 Document
+            if not isinstance(chunk, Document):
+                chunk = Document(
+                    page_content=str(chunk),
+                    metadata={"sort_id": idx}
+                )
+            else:
+                # 确保 metadata 存在
+                if not hasattr(chunk, 'metadata') or chunk.metadata is None:
+                    chunk.metadata = {}
+                # 添加 sort_id，保留原有元数据
+                chunk.metadata["sort_id"] = idx
+                    
+            processed_chunks.append(chunk)
+
+        # 使用 processed_chunks 继续处理
+        chunks = processed_chunks
         # 如果没有生成块，创建一个包含整个内容的文档
         if not chunks:
             logger.warning(f"No chunks created for document {file_path}, creating single chunk")
-            chunks = [Document(page_content=markdown[:1000] if markdown else "")]  # 限制长度避免embedding问题
+            chunks = [Document(page_content=markdown[:2000] if markdown else "")]  # 限制长度避免embedding问题
         
         return chunks
 

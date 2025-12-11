@@ -1,12 +1,9 @@
 from agents.workflow import AgentWorkflow
-from parser import Doclingparser
-from retriever import Chroma_Builder
 from config.settings import settings
 import gradio as gr
 # 会话状态
 session_states = {}
 # 初始化处理器和工作流
-processor = Doclingparser()
 workflow = AgentWorkflow()
 
 

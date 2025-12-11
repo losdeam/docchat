@@ -5,7 +5,7 @@ from .research_agent import ResearchAgent   # 使用相关文档生成草拟答�
 from .verification_agent import VerificationAgent # 评估草拟答案的准确性和相关性
 from .relevance_checker import RelevanceChecker # 确定查询是否够可以根据检索到的文档进行回答
 
-from retriever import Chroma_Retriever
+from rag.retriever import Chroma_Retriever
 from langchain_core.documents import Document
 import logging
 from dotenv import load_dotenv

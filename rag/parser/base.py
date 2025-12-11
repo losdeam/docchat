@@ -8,7 +8,6 @@ import pickle
 from pathlib import Path
 from config import constants
 from config.settings import settings
-from utils.cache_queue import get_cache_queue_manager
 from utils.logging import logger
 
 
@@ -16,7 +15,7 @@ class Baseparser(ABC):
     def __init__(self):
         self.cache_dir = Path(settings.CACHE_DIR)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.cache_queue = get_cache_queue_manager()
+
         
     def validate_files(self, files: List) -> None:
         """验证上传的文件的大小是否超出限制"""
