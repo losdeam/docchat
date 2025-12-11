@@ -23,17 +23,16 @@ def list_knowledge_base_contents(selected_kb=None):
         if not docs:
             return f"知识库 '{selected_kb}' 中没有文档"
         
-        # 格式化输出
-        result = f"📚 知识库 '{selected_kb}' 中的文档:\n\n"
-        for doc_name in docs:
-            result += f"📄 {doc_name}\n"
+        # 返回文档列表用于表格展示
+        doc_data = []
+        for i, doc_name in enumerate(docs, 1):
+            doc_data.append([i, doc_name])
         
-        result += f"\n总计: {len(docs)} 个文档"
-        return result
+        return doc_data
         
     except Exception as e:
         logger.error(f"查询知识库内容时出错: {str(e)}")
-        return f"❌ 查询知识库内容时出错: {str(e)}"
+        return [["错误", f"查询知识库内容时出错: {str(e)}"]]
 
 def show_document_details(selected_kb, selected_doc):
     """显示文档详情"""
@@ -50,23 +49,30 @@ def show_document_details(selected_kb, selected_doc):
         # 获取文档分块
         try:
             chunks = kb_builder.list_chunks(selected_doc)
-            chunk_count = len(chunks) if isinstance(chunks, list) else "未知"
         except Exception as e:
-            chunk_count = f"无法获取 (错误: {str(e)})"
+            chunks = []
         
-        # 显示文档详情
-        result = f"📄 文档详情:\n\n"
-        result += f"名称: {selected_doc}\n"
-        result += f"知识库: {selected_kb}\n"
-        result += f"分块数量: {chunk_count}\n"
+        # 准备分块数据用于表格展示
+        chunk_data = []
+        if isinstance(chunks, list):
+            for i, chunk in enumerate(chunks, 1):
+                if hasattr(chunk, 'page_content'):
+                    content = chunk.page_content[:100] + "..." if len(chunk.page_content) > 100 else chunk.page_content
+                    chunk_data.append([i, content])
+                else:
+                    chunk_data.append([i, str(chunk)[:100]])
+        else:
+            chunk_data.append([1, "无法获取分块信息"])
         
-        return result
+        return chunk_data
         
     except Exception as e:
         logger.error(f"查询文档详情时出错: {str(e)}")
-        return f"❌ 查询文档详情时出错: {str(e)}"
+        return [[1, f"查询文档详情时出错: {str(e)}"]]
+
 def kb_close():
     kb_manager.raise_()
+
 def kb_manage_page(demo=None):
     demo.unload(kb_close)
     with gr.TabItem("📚 知识库管理"):
@@ -74,25 +80,32 @@ def kb_manage_page(demo=None):
         gr.Markdown("查看和管理知识库中的文档数据")
         
         with gr.Row():
-            with gr.Column():
+            # 左侧列：知识库选择和文档列表
+            with gr.Column(scale=1):
                 kb_selector = gr.Dropdown(
                     label="📚 选择知识库",
                     choices=kb_manager.list_kb(),
-                    value=kb_manager.list_kb()[0] if kb_manager.list_kb() else "default",
-                    scale=4
+                    value=kb_manager.list_kb()[0] if kb_manager.list_kb() else "default"
                 )
-
-
-        
-        # 创建一个交互式文档列表来显示文档详情
-        with gr.Row():
-            kb_status_output = gr.Textbox(label="知识库状态", interactive=False, lines=10)
                 
-            # 文档详情部分
-            with gr.Group():
-                gr.Markdown("### 📄 文档详情")
+                gr.Markdown("### 📚 文档列表")
+                doc_table = gr.Dataframe(
+                    label="",
+                    headers=["#", "文档名称"],
+                    datatype=["number", "str"],
+                    interactive=False
+                )
+                
+            # 右侧列：文档分块详情
+            with gr.Column(scale=1):
+                gr.Markdown("### 📄 文档分块详情")
                 doc_selector = gr.Dropdown(label="选择文档", choices=[], interactive=True)
-                doc_detail_output = gr.Textbox(label="", interactive=False, lines=8)
+                chunk_table = gr.Dataframe(
+                    label="",
+                    headers=["#", "分块内容"],
+                    datatype=["number", "str"],
+                    interactive=False
+                )
         
         # 添加文档选择器的change事件
         def update_doc_selector(selected_kb):
@@ -115,7 +128,7 @@ def kb_manage_page(demo=None):
         def show_document_details_from_selector(selected_kb, selected_doc):
             """从选择器显示文档详情"""
             if not selected_kb or not selected_doc:
-                return "请先选择知识库和文档"
+                return []
             return show_document_details(selected_kb, selected_doc)
         
         # 设置事件监听
@@ -125,14 +138,14 @@ def kb_manage_page(demo=None):
                 update_doc_selector(kb)
             ],
             inputs=[kb_selector],
-            outputs=[kb_status_output, doc_selector]
+            outputs=[doc_table, doc_selector]
         )
         
         
         doc_selector.change(
             fn=show_document_details_from_selector,
             inputs=[kb_selector, doc_selector],
-            outputs=[doc_detail_output]
+            outputs=[chunk_table]
         )
 
         
@@ -148,7 +161,7 @@ def kb_manage_page(demo=None):
             outputs=[
                 kb_selector,
                 kb_selector,
-                kb_status_output,
+                doc_table,
                 doc_selector
             ]
         )
