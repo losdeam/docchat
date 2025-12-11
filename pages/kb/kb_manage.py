@@ -11,17 +11,17 @@ from rag.retriever.base import kb_manager
 def list_knowledge_base_contents(selected_kb=None):
     """列出知识库中的文档"""
     if not selected_kb:
-        return "请先选择一个知识库"
+        return []
     
     try:
         # 使用KB_manager获取知识库实例
         if selected_kb not in kb_manager.kb_dict:
-            return f"知识库 '{selected_kb}' 不存在"
+            return [["错误", f"知识库 '{selected_kb}' 不存在"]]
         
         kb_builder = kb_manager.kb_dict[selected_kb]
         docs = kb_builder.list_docs()
         if not docs:
-            return f"知识库 '{selected_kb}' 中没有文档"
+            return [["信息", f"知识库 '{selected_kb}' 中没有文档"]]
         
         # 返回文档列表用于表格展示
         doc_data = []
@@ -37,12 +37,12 @@ def list_knowledge_base_contents(selected_kb=None):
 def show_document_details(selected_kb, selected_doc):
     """显示文档详情"""
     if not selected_kb or not selected_doc:
-        return "请先选择知识库和文档"
+        return []
     
     try:
         # 使用KB_manager获取知识库实例
         if selected_kb not in kb_manager.kb_dict:
-            return f"知识库 '{selected_kb}' 不存在"
+            return [[1, f"知识库 '{selected_kb}' 不存在"]]
         
         kb_builder = kb_manager.kb_dict[selected_kb]
         
@@ -70,6 +70,40 @@ def show_document_details(selected_kb, selected_doc):
         logger.error(f"查询文档详情时出错: {str(e)}")
         return [[1, f"查询文档详情时出错: {str(e)}"]]
 
+def refresh_kb_list():
+    """刷新知识库列表"""
+    kb_manager.kb_load_local()
+    kb_list = kb_manager.list_kb()
+    default_value = kb_list[0] if kb_list else "default"
+    return [
+        gr.update(choices=kb_list),
+        default_value,
+        list_knowledge_base_contents(default_value),
+        update_doc_selector(default_value)
+    ]
+
+def update_doc_selector(selected_kb):
+    """更新文档选择器选项"""
+    if not selected_kb:
+        return gr.update(choices=[])
+    
+    try:
+        if selected_kb not in kb_manager.kb_dict:
+            return gr.update(choices=[])
+        
+        kb_builder = kb_manager.kb_dict[selected_kb]
+        docs = kb_builder.list_docs()
+        return gr.update(choices=docs, value=docs[0] if docs else None)
+    except Exception as e:
+        logger.error(f"更新文档选择器时出错: {str(e)}")
+        return gr.update(choices=[])
+
+def show_document_details_from_selector(selected_kb, selected_doc):
+    """从选择器显示文档详情"""
+    if not selected_kb or not selected_doc:
+        return []
+    return show_document_details(selected_kb, selected_doc)
+
 def kb_close():
     kb_manager.raise_()
 
@@ -82,11 +116,14 @@ def kb_manage_page(demo=None):
         with gr.Row():
             # 左侧列：知识库选择和文档列表
             with gr.Column(scale=1):
-                kb_selector = gr.Dropdown(
-                    label="📚 选择知识库",
-                    choices=kb_manager.list_kb(),
-                    value=kb_manager.list_kb()[0] if kb_manager.list_kb() else "default"
-                )
+                with gr.Row():
+                    kb_selector = gr.Dropdown(
+                        label="📚 选择知识库",
+                        choices=kb_manager.list_kb(),
+                        value=kb_manager.list_kb()[0] if kb_manager.list_kb() else "default",
+                        scale=4
+                    )
+                    refresh_kb_btn = gr.Button("🔄 刷新", scale=1)
                 
                 gr.Markdown("### 📚 文档列表")
                 doc_table = gr.Dataframe(
@@ -96,7 +133,7 @@ def kb_manage_page(demo=None):
                     interactive=False
                 )
                 
-            # 右侧列：文档分块详情
+            # 右侧列：文档详情和分块列表
             with gr.Column(scale=1):
                 gr.Markdown("### 📄 文档分块详情")
                 doc_selector = gr.Dropdown(label="选择文档", choices=[], interactive=True)
@@ -106,30 +143,6 @@ def kb_manage_page(demo=None):
                     datatype=["number", "str"],
                     interactive=False
                 )
-        
-        # 添加文档选择器的change事件
-        def update_doc_selector(selected_kb):
-            """更新文档选择器选项"""
-            if not selected_kb:
-                return gr.update(choices=[])
-            
-            try:
-                if selected_kb not in kb_manager.kb_dict:
-                    return gr.update(choices=[])
-                
-                kb_builder = kb_manager.kb_dict[selected_kb]
-                docs = kb_builder.list_docs()
-                return gr.update(choices=docs, value=docs[0] if docs else None)
-            except Exception as e:
-                logger.error(f"更新文档选择器时出错: {str(e)}")
-                return gr.update(choices=[])
-        
-        # 修改原有函数，支持从文档选择器获取文档名
-        def show_document_details_from_selector(selected_kb, selected_doc):
-            """从选择器显示文档详情"""
-            if not selected_kb or not selected_doc:
-                return []
-            return show_document_details(selected_kb, selected_doc)
         
         # 设置事件监听
         kb_selector.change(
@@ -141,14 +154,18 @@ def kb_manage_page(demo=None):
             outputs=[doc_table, doc_selector]
         )
         
-        
         doc_selector.change(
             fn=show_document_details_from_selector,
             inputs=[kb_selector, doc_selector],
             outputs=[chunk_table]
         )
-
         
+        refresh_kb_btn.click(
+            fn=refresh_kb_list,
+            inputs=[],
+            outputs=[kb_selector, kb_selector, doc_table, doc_selector]
+        )
+
         # 页面加载时自动显示知识库内容
         demo.load(
             fn=lambda: [
