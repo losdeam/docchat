@@ -1,184 +1,132 @@
 import gradio as gr 
 from pages.utils import *
-from utils import logger, get_available_knowledge_bases
-from utils.file_manage import file_manager_activate
+from utils.logging import logger
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
+from rag.retriever.base import kb_manager
 import os
 import json
-from rag.retriever.base import kb_manager
+from config.settings import settings
 
-def list_knowledge_base_contents(selected_kb=None):
-    """列出知识库中的文档"""
-    if not selected_kb:
-        return []
-    
+def list_knowledge_bases():
+    """列出所有知识库"""
     try:
-        # 使用KB_manager获取知识库实例
-        if selected_kb not in kb_manager.kb_dict:
-            return [["错误", f"知识库 '{selected_kb}' 不存在"]]
+        kb_list = kb_manager.list_kb()
+        if not kb_list:
+            return "当前没有任何知识库"
         
-        kb_builder = kb_manager.kb_dict[selected_kb]
-        docs = kb_builder.list_docs()
-        if not docs:
-            return [["信息", f"知识库 '{selected_kb}' 中没有文档"]]
-        
-        # 返回文档列表用于表格展示
-        doc_data = []
-        for i, doc_name in enumerate(docs, 1):
-            doc_data.append([i, doc_name])
-        
-        return doc_data
-        
+        result = "📚 知识库列表:\n\n"
+        for i, kb_name in enumerate(kb_list, 1):
+            result += f"{i}. {kb_name}\n"
+        result += f"\n总计: {len(kb_list)} 个知识库"
+        return result
     except Exception as e:
-        logger.error(f"查询知识库内容时出错: {str(e)}")
-        return [["错误", f"查询知识库内容时出错: {str(e)}"]]
+        logger.error(f"列出知识库时出错: {str(e)}")
+        return f"❌ 列出知识库时出错: {str(e)}"
 
-def show_document_details(selected_kb, selected_doc):
-    """显示文档详情"""
-    if not selected_kb or not selected_doc:
-        return []
-    
+def show_kb_details(kb_name: str):
+    """显示特定知识库的详细信息"""
     try:
-        # 使用KB_manager获取知识库实例
-        if selected_kb not in kb_manager.kb_dict:
-            return [[1, f"知识库 '{selected_kb}' 不存在"]]
+        if not kb_name:
+            return "请输入知识库名称"
         
-        kb_builder = kb_manager.kb_dict[selected_kb]
+        if kb_name not in kb_manager.kb_dict:
+            return f"❌ 知识库 '{kb_name}' 不存在"
         
-        # 获取文档分块
-        try:
-            chunks = kb_builder.list_chunks(selected_doc)
-        except Exception as e:
-            chunks = []
+        kb = kb_manager.kb_dict[kb_name]
+        docs = kb.list_docs()
         
-        # 准备分块数据用于表格展示
-        chunk_data = []
-        if isinstance(chunks, list):
-            for i, chunk in enumerate(chunks, 1):
-                if hasattr(chunk, 'page_content'):
-                    content = chunk.page_content[:100] + "..." if len(chunk.page_content) > 100 else chunk.page_content
-                    chunk_data.append([i, content])
-                else:
-                    chunk_data.append([i, str(chunk)[:100]])
+        result = f"📘 知识库详情: {kb_name}\n\n"
+        result += f"配置文件路径: {kb.config_path}\n"
+        result += f"文档存储路径: {kb.docs_dir}\n"
+        result += f"激活状态: {'已激活' if kb.activate_status else '未激活'}\n"
+        result += f"初始化状态: {'成功' if kb.init_status else '失败'}\n\n"
+        
+        if kb.config:
+            result += "⚙️ 配置信息:\n"
+            result += f"  名称: {kb.config.name}\n"
+            result += f"  描述: {kb.config.description}\n"
+            result += f"  类型: {kb.config.KB_TYPE}\n"
+            result += f"  嵌入模型服务商: {kb.config.EMBEDDING_MODEL_SERVER}\n"
+            result += f"  嵌入模型: {kb.config.EMBEDDING_MODEL}\n"
+            result += f"  文档处理器: {kb.config.PROCESSOR}\n"
+            result += f"  混合检索权重: {kb.config.HYBRID_RETRIEVER_WEIGHTS}\n\n"
+        
+        result += f"📄 文档列表 ({len(docs)} 个):\n"
+        if docs:
+            for i, doc in enumerate(docs, 1):
+                result += f"  {i}. {doc}\n"
         else:
-            chunk_data.append([1, "无法获取分块信息"])
-        
-        return chunk_data
-        
+            result += "  暂无文档\n"
+            
+        return result
     except Exception as e:
-        logger.error(f"查询文档详情时出错: {str(e)}")
-        return [[1, f"查询文档详情时出错: {str(e)}"]]
+        logger.error(f"获取知识库详情时出错: {str(e)}")
+        return f"❌ 获取知识库详情时出错: {str(e)}"
 
-def refresh_kb_list():
+def refresh_knowledge_bases():
     """刷新知识库列表"""
-    kb_manager.kb_load_local()
-    kb_list = kb_manager.list_kb()
-    default_value = kb_list[0] if kb_list else "default"
-    return [
-        gr.update(choices=kb_list),
-        default_value,
-        list_knowledge_base_contents(default_value),
-        update_doc_selector(default_value)
-    ]
-
-def update_doc_selector(selected_kb):
-    """更新文档选择器选项"""
-    if not selected_kb:
-        return gr.update(choices=[])
-    
     try:
-        if selected_kb not in kb_manager.kb_dict:
-            return gr.update(choices=[])
-        
-        kb_builder = kb_manager.kb_dict[selected_kb]
-        docs = kb_builder.list_docs()
-        return gr.update(choices=docs, value=docs[0] if docs else None)
+        kb_manager.kb_load_local()
+        kb_list = kb_manager.list_kb()
+        return [
+            gr.update(choices=kb_list),
+            list_knowledge_bases()
+        ]
     except Exception as e:
-        logger.error(f"更新文档选择器时出错: {str(e)}")
-        return gr.update(choices=[])
-
-def show_document_details_from_selector(selected_kb, selected_doc):
-    """从选择器显示文档详情"""
-    if not selected_kb or not selected_doc:
-        return []
-    return show_document_details(selected_kb, selected_doc)
-
-def kb_close():
-    kb_manager.raise_()
+        logger.error(f"刷新知识库时出错: {str(e)}")
+        return [gr.update(choices=[]), f"❌ 刷新知识库时出错: {str(e)}"]
 
 def kb_manage_page(demo=None):
-    demo.unload(kb_close)
     with gr.TabItem("📚 知识库管理"):
         gr.Markdown("# 📚 知识库管理")
         gr.Markdown("查看和管理知识库中的文档数据")
-        
         with gr.Row():
-            # 左侧列：知识库选择和文档列表
             with gr.Column(scale=1):
-                with gr.Row():
-                    kb_selector = gr.Dropdown(
-                        label="📚 选择知识库",
-                        choices=kb_manager.list_kb(),
-                        value=kb_manager.list_kb()[0] if kb_manager.list_kb() else "default",
-                        scale=4
-                    )
-                    refresh_kb_btn = gr.Button("🔄 刷新", scale=1)
-                
-                gr.Markdown("### 📚 文档列表")
-                doc_table = gr.Dataframe(
-                    label="",
-                    headers=["#", "文档名称"],
-                    datatype=["number", "str"],
-                    interactive=False
+                refresh_btn = gr.Button("🔄 刷新知识库列表", variant="secondary")
+                list_output = gr.Textbox(
+                    label="📚 知识库列表", 
+                    interactive=False, 
+                    lines=10
                 )
                 
-            # 右侧列：文档详情和分块列表
+                gr.Markdown("### 📘 查看详细信息")
+                kb_selector = gr.Dropdown(
+                    label="选择知识库",
+                    choices=kb_manager.list_kb(),
+                    interactive=True
+                )
+                show_details_btn = gr.Button("📖 显示详细信息", variant="primary")
+                
             with gr.Column(scale=1):
-                gr.Markdown("### 📄 文档分块详情")
-                doc_selector = gr.Dropdown(label="选择文档", choices=[], interactive=True)
-                chunk_table = gr.Dataframe(
-                    label="",
-                    headers=["#", "分块内容"],
-                    datatype=["number", "str"],
-                    interactive=False
+                details_output = gr.Textbox(
+                    label="📘 知识库详情", 
+                    interactive=False, 
+                    lines=20
                 )
         
-        # 设置事件监听
-        kb_selector.change(
-            fn=lambda kb: [
-                list_knowledge_base_contents(kb),
-                update_doc_selector(kb)
-            ],
+        # 事件处理
+        refresh_btn.click(
+            fn=refresh_knowledge_bases,
+            inputs=[],
+            outputs=[kb_selector, list_output]
+        )
+        
+        show_details_btn.click(
+            fn=show_kb_details,
             inputs=[kb_selector],
-            outputs=[doc_table, doc_selector]
+            outputs=[details_output]
         )
         
-        doc_selector.change(
-            fn=show_document_details_from_selector,
-            inputs=[kb_selector, doc_selector],
-            outputs=[chunk_table]
+        kb_selector.change(
+            fn=show_kb_details,
+            inputs=[kb_selector],
+            outputs=[details_output]
         )
         
-        refresh_kb_btn.click(
-            fn=refresh_kb_list,
-            inputs=[],
-            outputs=[kb_selector, kb_selector, doc_table, doc_selector]
-        )
-
-        # 页面加载时自动显示知识库内容
+        # 页面加载时自动刷新知识库列表
         demo.load(
-            fn=lambda: [
-                gr.update(choices=kb_manager.list_kb()),
-                kb_manager.list_kb()[0] if kb_manager.list_kb() else "default",
-                list_knowledge_base_contents(kb_manager.list_kb()[0] if kb_manager.list_kb() else "default"),
-                update_doc_selector(kb_manager.list_kb()[0] if kb_manager.list_kb() else "default")
-            ],
+            fn=lambda: refresh_knowledge_bases(),
             inputs=[],
-            outputs=[
-                kb_selector,
-                kb_selector,
-                doc_table,
-                doc_selector
-            ]
+            outputs=[kb_selector, list_output]
         )
