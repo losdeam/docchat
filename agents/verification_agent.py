@@ -4,14 +4,15 @@ from langchain_core.documents import Document
 import re,os
 import logging
 from langchain_openai import ChatOpenAI
-
+from utils import logger,log_execution
 
 class VerificationAgent:
+    @log_execution("相关性验证节点——初始化")
     def __init__(self):
         """
         Initialize the verification agent with the IBM WatsonX ModelInference.
         """
-        print("正在初始化判别模型...")
+        # logger.info("正在初始化验证模型...")
         model_server = os.getenv("VERIFICATION_MODEL_SERVER")
         if model_server == "siliconflow":
             self.model = ChatOpenAI(
@@ -21,9 +22,9 @@ class VerificationAgent:
                 max_tokens=2000,  # Adjust based on desired response length
                 temperature=0  # Controls randomness; lower values make output more deterministic
             )
-            print("判别模型初始化成功.")
+            # logger.info("验证模型初始化成功.")
         else:
-            print("未配置有效的模型服务器。")
+            logger.info("未配置有效的模型服务器。")
 
     def sanitize_response(self, response_text: str) -> str:
         """
@@ -117,7 +118,7 @@ class VerificationAgent:
 
             return verification
         except Exception as e:
-            print(f"Error parsing verification response: {e}")
+            logger.info(f"Error parsing verification response: {e}")
             return None
 
     def format_verification_report(self, verification: Dict) -> str:
@@ -158,31 +159,31 @@ class VerificationAgent:
         """
         Verify the accuracy and relevance of a given answer against a list of documents.
         """
-        print(f"VerificationAgent.check called with answer length={len(answer)} and {len(documents)} documents.")
+        logger.info(f"VerificationAgent.check called with answer length={len(answer)} and {len(documents)} documents.")
 
         # Combine the top document contents into one string
         context = "\n\n".join([doc.page_content for doc in documents])
-        print(f"Combined context length: {len(context)} characters.")
+        logger.info(f"Combined context length: {len(context)} characters.")
 
         # Create a prompt for the LLM
         prompt = self.generate_prompt(answer, context)
-        print("Prompt created for the LLM.")
+        logger.info("Prompt created for the LLM.")
 
         # Call the LLM to verify the answer
         try:
-            print("Sending prompt to the model...")
+            logger.info("Sending prompt to the model...")
             response = self.model.invoke(prompt)
-            print("LLM response received.")
+            logger.info("LLM response received.")
         except Exception as e:
-            print(f"Error during model inference: {e}")
+            logger.info(f"Error during model inference: {e}")
             raise RuntimeError("Failed to verify answer due to a model error.") from e
 
         # Extract and process the LLM's response
         try:
             llm_response = response.content.strip()
-            print(f"Raw LLM response:\n{llm_response}")
+            logger.info(f"Raw LLM response:\n{llm_response}")
         except (IndexError, KeyError) as e:
-            print(f"Unexpected response structure: {e}")
+            logger.info(f"Unexpected response structure: {e}")
             llm_response = "Supported: NO\nUnsupported Claims: []\nContradictions: []\nRelevant: NO\nAdditional Details: Failed to parse LLM response."
 
         # Parse the structured response
@@ -200,7 +201,7 @@ class VerificationAgent:
             for key, value in verification_result.items()
         }
 
-        print(f"Verification result: {sanitized_result}")
+        logger.info(f"Verification result: {sanitized_result}")
 
         # Format the final report
         report_lines = [

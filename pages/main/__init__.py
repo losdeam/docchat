@@ -9,7 +9,7 @@ from config import constants
 from rag.retriever.base import kb_manager
 
 def process_message(message: str, history: List[List[str]], 
-                   uploaded_files: List[Any], kb_selector: str) -> str:
+                   kb_selector: str) -> str:
     """处理用户消息的核心函数"""
     try:
         # 获取或创建会话状态
@@ -26,38 +26,14 @@ def process_message(message: str, history: List[List[str]],
         if kb_selector and kb_selector in kb_manager.kb_dict:
             kb = kb_manager.kb_dict[kb_selector]
         
-        # 如果没有上传文件且没有选择有效的知识库
-        all_files = uploaded_files if uploaded_files else []
-        if not all_files and kb is None:
-            return "❌ 请上传文档或选择一个有效的知识库"
-        
-        # 处理文件哈希
-        current_hashes = frozenset()
-        if all_files:
-            current_hashes = frozenset([hashlib.sha256(open(f.name, "rb").read()).hexdigest() 
-                                       for f in all_files])
+
         
         # 如果文件发生变化，或者没有retriever且选择了知识库，重新处理
-        if state["retriever"] is None or current_hashes != state["file_hashes"] or (kb is not None and state.get("current_kb") != kb_selector):
+        if state["retriever"] is None or (kb is not None and state.get("current_kb") != kb_selector):
             logger.info("Processing new/changed documents or switching knowledge base...")
-            
-            # 如果有上传的文件，优先处理文件
-            if all_files:
-                chunks = processor.process(all_files)
-                
-                if not chunks:
-                    return "❌ 文档处理后没有生成任何内容，请检查文档格式是否支持"
-                
-                # 创建检索器
-                local_retriever_builder = Chroma_Builder()
-                retriever = local_retriever_builder.build_retriever(docs=chunks)
-                state.update({
-                    "file_hashes": current_hashes,
-                    "retriever": retriever,
-                    "current_kb": None  # 表示当前使用的是上传的文件而不是知识库
-                })
+  
             # 如果没有上传文件但选择了知识库，则使用知识库
-            elif kb is not None:
+            if kb is not None:
                 # 确保知识库已经激活
                 kb.activate_beforeUse()
                 # 获取知识库的检索器
@@ -117,7 +93,6 @@ def main_page(demo=None):
         chatbot = gr.ChatInterface(
             fn=process_message,
             additional_inputs=[
-                files,
                 kb_selector
             ],
             examples=[

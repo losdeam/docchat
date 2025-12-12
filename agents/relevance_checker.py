@@ -2,15 +2,15 @@ from config.settings import settings
 import re,os
 import logging
 from langchain_openai import ChatOpenAI
-
-logger = logging.getLogger(__name__)
+from utils import logger,log_execution
 
 class RelevanceChecker: # 构建一个类来获取检索的状态
+    @log_execution("结果相关性判断节点——初始化")
     def __init__(self):
         """
         Initialize the research agent 
         """
-        print("正在初始化判别模型...")
+        # logger.info("正在初始化判别模型...")
         model_server = os.getenv("CHECKER_MODEL_SERVER")
         if model_server == "siliconflow":
             self.model = ChatOpenAI(
@@ -20,7 +20,7 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
                 max_tokens=1000,            # Adjust based on desired response length
                 temperature=0           # Controls randomness; lower values make output more deterministic
             )
-        print("判别模型初始化成功.")
+        # logger.info("判别模型初始化成功.")
 
 
     def check(self, question: str, documents=None,k=3) -> str:
@@ -77,8 +77,8 @@ class RelevanceChecker: # 构建一个类来获取检索的状态
         except (IndexError, KeyError) as e:
             logger.error(f"Unexpected response structure: {e}")
             return "NO_MATCH"
-        print(prompt)
-        print(f"Checker response: {llm_response}")
+        logger.info(prompt)
+        logger.info(f"Checker response: {llm_response}")
 
         # Validate the response
         valid_labels = {"CAN_ANSWER", "PARTIAL", "NO_MATCH"}

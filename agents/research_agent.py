@@ -4,15 +4,16 @@ from langchain_core.documents import Document
 import re,os
 import logging
 from langchain_openai import ChatOpenAI
-
-logger = logging.getLogger(__name__)
+from utils import logger,log_execution
+# logger = logging.getLogger(__name__)
 
 class ResearchAgent:
+    @log_execution("rag问题回复节点——初始化")
     def __init__(self):
         """
         Initialize the research agent 
         """
-        print("正在初始化生成模型...")
+        # logger.info("正在初始化生成模型...")
         model_server = os.getenv("RESEARCH_MODEL_SERVER")
         model_name = os.getenv("RESEARCH_MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
         
@@ -24,7 +25,9 @@ class ResearchAgent:
                 max_tokens=2000,
                 temperature=0.3
             )
-        print("生成模型初始化成功.")
+        else:
+            logger.info("未配置有效的模型服务器。")
+        # logger.info("生成模型初始化成功.")
 
     def sanitize_response(self, response_text: str) -> str:
         """
@@ -52,37 +55,37 @@ class ResearchAgent:
         """
         Generate an initial answer using the provided documents.
         """
-        print(f"ResearchAgent.generate called with question='{question}' and {len(documents)} documents.")
+        logger.info(f"ResearchAgent.generate called with question='{question}' and {len(documents)} documents.")
 
         # Combine the top document contents into one string
         context = "\n\n".join([doc.page_content for doc in documents])
-        print(f"Combined context length: {len(context)} characters.")
+        logger.info(f"Combined context length: {len(context)} characters.")
 
         # Create a prompt for the LLM
         prompt = self.generate_prompt(question, context)
-        print("Prompt created for the LLM.")
+        logger.info("Prompt created for the LLM.")
 
         # Call the LLM to generate the answer
         try:
-            print("Sending prompt to the model...")
+            logger.info("Sending prompt to the model...")
             response = self.model.invoke(prompt)
-            print("LLM response received.")
+            logger.info("LLM response received.")
         except Exception as e:
-            print(f"Error during model inference: {e}")
+            logger.info(f"Error during model inference: {e}")
             raise RuntimeError("Failed to generate answer due to a model error.") from e
 
         # Extract and process the LLM's response
         try:
             llm_response = response.content.strip()
-            print(f"Raw LLM response:\n{llm_response}")
+            logger.info(f"Raw LLM response:\n{llm_response}")
         except (IndexError, KeyError) as e:
-            print(f"Unexpected response structure: {e}")
+            logger.info(f"Unexpected response structure: {e}")
             llm_response = "I cannot answer this question based on the provided documents."
 
         # Sanitize the response
         draft_answer = self.sanitize_response(llm_response) if llm_response else "I cannot answer this question based on the provided documents."
 
-        print(f"Generated answer: {draft_answer}")
+        logger.info(f"Generated answer: {draft_answer}")
 
         return {
             "draft_answer": draft_answer,

@@ -1,6 +1,6 @@
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
-
+from utils import get_single_hash,file_manager_activate
 from config.settings import settings
 import logging, os, pickle,json
 from typing import List, Any
@@ -126,9 +126,20 @@ class Chroma_Builder(BASE_KB):
             raise
     
     def add_doc(self, doc_list: list[str]):
-        docs = self.parse_doc(doc_list)
-        self.docs.extend(docs)
-        return docs
+        
+        result = {}
+        file_manager_activate.add_docs(doc_list) # 将文件保存至本地
+
+        for file_path in doc_list:
+            # 保存文件信息至文件的配置文件中
+            doc_hash = get_single_hash(file_path) + "." + file_path.split(".")[-1]
+            doc_name = os.path.basename(file_path)
+            if doc_hash not in self.config.FILE_LIST:
+                chunks = self.parser._process_file(file_path)
+                result[doc_name] = chunks
+                self.docs[doc_name] = chunks
+                self.config.FILE_LIST[doc_hash] = doc_name
+        return result
 
     def save_local(self):
         # 将self.docs以pkl格式保存到self.docs_dir
@@ -147,41 +158,7 @@ class Chroma_Builder(BASE_KB):
         if isinstance(self.docs, dict) and doc_name in self.docs:
             del self.docs[doc_name]
         
-    def parse_doc(self, docs: list) -> list:
-        """
-        解析文档
-        
-        Args:
-            docs: 文档路径列表
-            
-        Returns:
-            处理后的 Document 列表
-        """
-        from langchain_core.documents import Document
-        from utils import get_single_hash,file_manager_activate
 
-        result = []
-        file_manager_activate.add_docs(docs)  # 将文件保存至本地
-
-        for file_path in docs:
-            # 生成唯一哈希标识
-            ext = file_path.split(".")[-1]
-            doc_hash = get_single_hash(file_path) + "." + ext
-            doc_name = os.path.basename(file_path)
-
-            if doc_hash not in self.config.FILE_LIST:
-                try:
-                    chunks = self.parser._process_file(file_path)
-                    document_chunks = [
-                        Document(page_content=chunk, metadata={"sort_id": idx})
-                        for idx, chunk in enumerate(chunks)
-                    ]
-                    result.extend(document_chunks)
-                    self.docs[doc_name] = document_chunks
-                    self.config.FILE_LIST[doc_hash] = doc_name
-                except Exception as e:
-                    logger.error(f"Failed to process file {file_path}: {e}")
-        return result
         
     def save_config(self):
         """
