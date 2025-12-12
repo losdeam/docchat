@@ -2,7 +2,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
 from utils import get_single_hash,file_manager_activate
 from config.settings import settings
-import logging, os, pickle,json
+import logging, os, pickle,json,itertools
 from typing import List, Any
 from langchain_core.documents import Document
 from .base import BASE_KB
@@ -64,7 +64,13 @@ class Chroma_Builder(BASE_KB):
         self.config_path = None
         self.docs_dir = None
 
-
+    def _get_doc_id(self, doc: Document) -> str:
+        """生成文档唯一ID的辅助方法"""
+        import hashlib
+        # 关键：将页面内容和核心元数据（如source）一起哈希
+        # 排序metadata.items()是为了保证字典顺序一致
+        content_to_hash = doc.page_content + str(sorted(doc.metadata.items()))
+        return hashlib.sha256(content_to_hash.encode()).hexdigest()[:32] # 取前32位已足够
 
     def build_retriever(self, docs=None):
         """构建一个结合BM25与向量检索的混合检索器。"""
@@ -73,7 +79,7 @@ class Chroma_Builder(BASE_KB):
             hybrid_retriever_weights = self.config.HYBRID_RETRIEVER_WEIGHTS
             
             # 如果提供了docs则使用它，否则使用self.docs
-            documents = docs if docs is not None else list(self.docs.values()) if isinstance(self.docs, dict) else self.docs
+            documents = docs if docs is not None else list(self.docs.values()) if isinstance(self.docs, dict) else list(itertools.chain.from_iterable(self.docs.values()))
 
             # 展平文档：如果 self.docs 是字典，values() 是列表的列表，则需展平
             if isinstance(documents, dict):
@@ -81,27 +87,29 @@ class Chroma_Builder(BASE_KB):
             elif isinstance(documents, list) and len(documents) > 0 and isinstance(documents[0], list):
                 documents = [doc for sublist in documents for doc in sublist]
 
-            if not documents:
-                logger.warning("No documents provided for retriever construction")
-                # 创建一个空的BM25检索器
-                bm25 = BM25Retriever.from_texts([""])
-                # 创建一个空的Chroma检索器
-                vector_store = Chroma(embedding_function=self.embeddings, persist_directory=str(self.cache_dir))
+            # 创建一个空的Chroma检索器
+            vector_store = Chroma(embedding_function=self.embeddings, persist_directory=str(self.cache_dir))
+            # 设置一个安全的批次大小，远低于64的限制，为长文本留出token余量。
+            embedding_batch_size = 32
+            # 2. 计算总批次数，便于显示进度
+            total_batches = (len(documents) + embedding_batch_size - 1) // embedding_batch_size
+            print(f"📊 开始处理，共有 {len(documents)} 个文档，需分为 {total_batches} 批进行向量化。")
+            # 创建Chrom
+                    
+            for i in range(0, len(documents), embedding_batch_size):
+                batch_num = (i // embedding_batch_size) + 1
+                batch_docs = documents[i:i + embedding_batch_size]
                 
-                hybrid_retriever = Chroma_Retriever(
-                    retrievers=[bm25, vector_store],
-                    weights=hybrid_retriever_weights,
-                    flags=["bm25", "vector"]
-                )
-                self.retriever = hybrid_retriever
-                return self.retriever
-            
-            # 创建Chroma向量存储的新方式
-            vector_store = Chroma.from_documents(
-                documents=documents,
-                embedding=self.embeddings,
-                persist_directory=str(self.cache_dir)
-            )
+                # --- 核心修改：为批次生成基于内容的ID ---
+                batch_ids = [self._get_doc_id(doc) for doc in batch_docs]
+                
+                print(f"🔄 处理第 {batch_num} 批，本批 {len(batch_docs)} 个文档...")
+                try:
+                    # 使用 ids 参数。对于Chroma，这通常实现“upsert”（存在则更新，不存在则插入）
+                    vector_store.add_documents(documents=batch_docs, ids=batch_ids)
+                    print(f"   ✅ 第 {batch_num} 批添加/更新成功。")
+                except Exception as e:
+                    print(f"   ❌ 第 {batch_num} 批处理失败: {e}")
 
             bm25 = BM25Retriever.from_documents(documents)
             hybrid_retriever = Chroma_Retriever(

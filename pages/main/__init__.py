@@ -84,10 +84,7 @@ def main_page(demo=None):
                 )
             with gr.Column(scale=1):
                 refresh_kb_btn = gr.Button("🔄 刷新")
-        
-        # 文件上传组件
-        with gr.Accordion("📎 附件", open=False):
-            files = gr.Files(label="上传文档", file_types=constants.ALLOWED_TYPES)
+
 
         # Chat Interface
         chatbot = gr.ChatInterface(
